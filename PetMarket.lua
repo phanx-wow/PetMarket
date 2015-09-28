@@ -70,6 +70,7 @@ function PetMarket:AUCTION_HOUSE_SHOW ()
 	frame:SetPoint ("LEFT", _G["AuctionFrameTab"..tab_index-1], "RIGHT", -8, 0)
 	PanelTemplates_SetNumTabs (AuctionFrame, tab_index)
 	PanelTemplates_EnableTab  (AuctionFrame, tab_index)
+	frame:GetScript("OnShow") (frame) -- force it to resize to fit its text
 
 	petmarket_orig_AuctionFrameTab_OnClick = AuctionFrameTab_OnClick
 	AuctionFrameTab_OnClick = PetMarket_AuctionFrameTab_OnClick
