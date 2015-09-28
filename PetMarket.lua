@@ -437,14 +437,14 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 		for i=1, cnt do
 			local itemLink = GetAuctionItemLink ("list", i)
 			local speciesID
-			local name, texture, _, _, _, _, _, minBid, _, buyoutPrice, _, _, _, _, _, _, itemId = GetAuctionItemInfo ("list", i)
+			local name, texture, _, _, _, _, _, minBid, _, buyoutPrice, _, _, _, _, _, _, itemID = GetAuctionItemInfo ("list", i)
 			if itemLink and string.find (itemLink, "|Hbattlepet:") then
 				_, speciesID = strsplit (":", itemLink)
 				speciesID = tonumber (speciesID)
 			else
 				speciesID = self.PetItems[itemID]
 				if not speciesID then
-					print ("PetMarket: Unknown pet item: "..itemId.." "..name)
+					print ("PetMarket: Unknown pet item: "..itemID.." "..name)
 				end
 			end
 			if speciesID and not self.KnownPets[speciesID] then
@@ -457,7 +457,7 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 						buyout = buyoutPrice,
 						bid = minBid,
 						link = itemLink,
-						id = itemId
+						id = itemID
 					}
 				end
 			end
@@ -484,8 +484,8 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 	else
 		self:UnregisterEvent ("AUCTION_ITEM_LIST_UPDATE")
 		local link = GetAuctionItemLink ("list", 1)
-		local name, texture, _, _, _, _, _, minBid, _, buyoutPrice, _, _, _, _, _, _, itemId = GetAuctionItemInfo ("list", 1)
-		if name ~= active_auction["name"] or itemId ~= active_auction["id"] then
+		local name, texture, _, _, _, _, _, minBid, _, buyoutPrice, _, _, _, _, _, _, itemID = GetAuctionItemInfo ("list", 1)
+		if name ~= active_auction["name"] or itemID ~= active_auction["id"] then
 			PetMarketConfirmBidText:Hide ()
 			PetMarketConfirmBidMoney:Hide ()
 			PetMarketConfirmBuyoutText:Hide ()
@@ -514,8 +514,8 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 			MoneyFrame_Update (PetMarketConfirmBuyoutMoney, buyoutPrice)
 			PetMarketConfirmBuyoutText:SetPoint ("TOP", PetMarketConfirmLink, "BOTTOM", -PetMarketConfirmBuyoutMoney:GetWidth ()/2, -20)
 			PetMarketConfirmButton:SetScript ("OnClick", function ()
-				local name, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, itemId = GetAuctionItemInfo ("list", 1)
-				if name == active_auction["name"] and itemId == active_auction["id"] then
+				local name, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, itemID = GetAuctionItemInfo ("list", 1)
+				if name == active_auction["name"] and itemID == active_auction["id"] then
 					PlaceAuctionBid ("list", 1, buyoutPrice)
 				end
 				PetMarketConfirm:Hide ()
@@ -525,8 +525,8 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 			MoneyFrame_Update (PetMarketConfirmBidMoney, minBid)
 			PetMarketConfirmBidText1:SetPoint ("TOP", PetMarketConfirmLink, "BOTTOM", -PetMarketConfirmBidMoney:GetWidth ()/2, -20)
 			PetMarketConfirmButton:SetScript ("OnClick", function ()
-				local name, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, itemId = GetAuctionItemInfo ("list", 1)
-				if name == active_auction["name"] and itemId == active_auction["id"] then
+				local name, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, itemID = GetAuctionItemInfo ("list", 1)
+				if name == active_auction["name"] and itemID == active_auction["id"] then
 					PlaceAuctionBid ("list", 1, minBid)
 				end
 				PetMarketConfirm:Hide ()
