@@ -20,7 +20,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 	-----
-	Forked version with fixes by Phanx:
+	Forked version with fixes and updates by Phanx:
 	https://github.com/Phanx/PetMarket
 ----------------------------------------------------------------------]]
 
