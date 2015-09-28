@@ -1,0 +1,12 @@
+## Interface: 60000
+## Author: Timothy Johnson
+## Title: PetMarket
+## Notes: Scans auction house for unowned pets.
+## Version: 1.3
+## OptionalDeps: Ace3
+## X-Embeds: Ace3
+
+#@no-lib-strip@
+embeds.xml
+#@end-no-lib-strip@
+PetMarket.lua
