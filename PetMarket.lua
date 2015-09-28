@@ -25,6 +25,7 @@
 ----------------------------------------------------------------------]]
 
 PetMarket = LibStub ("AceAddon-3.0"):NewAddon ("PetMarket", "AceEvent-3.0", "AceTimer-3.0")
+local PetMarket = PetMarket
 
 -- Pet lists
 PetMarket.KnownPets = {}
@@ -72,13 +73,13 @@ function PetMarket:AUCTION_HOUSE_SHOW ()
 	PanelTemplates_EnableTab  (AuctionFrame, tab_index)
 	frame:GetScript("OnShow") (frame) -- force it to resize to fit its text
 
-	petmarket_orig_AuctionFrameTab_OnClick = AuctionFrameTab_OnClick
-	AuctionFrameTab_OnClick = PetMarket_AuctionFrameTab_OnClick
+	self.orig_AuctionFrameTab_OnClick = AuctionFrameTab_OnClick
+	AuctionFrameTab_OnClick = self.AuctionFrameTab_OnClick
 
 	self:UnregisterEvent ("AUCTION_HOUSE_SHOW")
 end
 
-function PetMarket_AuctionFrameTab_OnClick (self, button, down, index)
+function PetMarket.AuctionFrameTab_OnClick (self, button, down, index)
 	if self:GetID () == tab_index then
 		AuctionFrameAuctions:Hide ()
 		AuctionFrameBrowse:Hide ()
@@ -97,7 +98,7 @@ function PetMarket_AuctionFrameTab_OnClick (self, button, down, index)
 		PetMarket:ShowUi ()
 	else
 		PetMarket:HideUi ()
-		petmarket_orig_AuctionFrameTab_OnClick (self, button, down, index)
+		PetMarket.orig_AuctionFrameTab_OnClick (self, button, down, index)
 	end
 end
 
@@ -418,6 +419,12 @@ end
 
 -- Auction House queries
 -------------------------------------------------------------------------------
+local function sortEntryStrings (a, b)
+	local  av = a.buyout < 1 and a.bid or a.buyout
+	local  bv = b.buyout < 1 and b.bid or b.buyout
+	return av < bv
+end
+
 function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 	if queryType == "NONE" then return end
 
@@ -441,8 +448,8 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 				end
 			end
 			if speciesID and not self.KnownPets[speciesID] then
-				v1 = buyoutPrice < 1 and minBid or buyoutPrice
-				v2 = pets[name] == nil and 0 or (pets[name]["buyout"] < 1 and pets[name]["bid"] or pets[name]["buyout"])
+				local v1 = buyoutPrice < 1 and minBid or buyoutPrice
+				local v2 = pets[name] == nil and 0 or (pets[name]["buyout"] < 1 and pets[name]["bid"] or pets[name]["buyout"])
 				if pets[name] == nil or v1 < v2 then
 					pets[name] = {
 						name = name,
@@ -461,15 +468,11 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 				battle = false
 				PetMarket:ScheduleTimer ("AHQuery", .1)
 			else
-				strings = {}
+				local strings = {}
 				for key, value in pairs (pets) do
 					table.insert (strings, value)
 				end
-				table.sort (strings, function (a, b)
-					local av = a["buyout"] < 1 and a["bid"] or a["buyout"]
-					local bv = b["buyout"] < 1 and b["bid"] or b["buyout"]
-					return av < bv
-				end)
+				table.sort (strings, sortEntryStrings)
 				self:CreateEntries (strings)
 				self:UnregisterEvent ("AUCTION_ITEM_LIST_UPDATE")
 			end
