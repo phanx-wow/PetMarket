@@ -1,0 +1,9 @@
+package-as: PetMarket
+
+externals:
+   Libs/LibStub: git://github.com/Phanx/LibStub.git
+   Libs/CallbackHandler-1.0: svn://svn.wowace.com/wow/callbackhandler/mainline/trunk/CallbackHandler-1.0
+   Libs/AceAddon-3.0: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceAddon-3.0
+   Libs/LibPetJournal-2.0: http://hg.curseforge.net/wow/libpetjournal-2-0/mainline
+   Libs/AceEvent-3.0: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceEvent-3.0
+   Libs/AceTimer-3.0: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceTimer-3.0
