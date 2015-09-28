@@ -47,11 +47,8 @@ function PetMarket:OnInitialize ()
 end
 
 function PetMarket:UpdatePets ()
-	for i=1, C_PetJournal.GetNumPets() do
-		local petID, _, owned, _, _, _, _, _, _, _, npcID = C_PetJournal.GetPetInfoByIndex(i)
-		if owned == true then
-			PetMarket.KnownPets[npcID] = petID
-		end
+	for _, petID in LibStub("LibPetJournal-2.0"):IteratePetIDs() do
+		PetMarket.KnownPets[(C_PetJournal.GetPetInfoByPetID(petID))] = name
 	end
 end
 
@@ -63,6 +60,7 @@ end
 -------------------------------------------------------------------------------
 function PetMarket:AUCTION_HOUSE_SHOW ()
 	self:UpdatePets ()
+	LibStub("LibPetJournal-2.0").RegisterCallback (self, "PetListUpdated", "UpdatePets")
 
 	tab_index = AuctionFrame.numTabs+1
 	local frame = CreateFrame ("Button", "AuctionFrameTab"..tab_index, AuctionFrame, "AuctionTabTemplate")
@@ -120,7 +118,7 @@ function PetMarket:CreateEntries (pets)
 			local click = function (self)
 				entry:SetChecked (true)
 				active_auction = value
-				if active_button ~= nil then 
+				if active_button ~= nil then
 					active_button:SetChecked (false)
 				end
 				active_button = entry
@@ -148,11 +146,11 @@ function PetMarket:CreateEntries (pets)
 			icon:SetPoint ("TOPLEFT", 0, 0)
 			icon:SetPoint ("BOTTOM", 0, 0)
 			icon:SetWidth (entry:GetHeight ())
-			
+
 			local text = link:CreateFontString ("PetMarketEntry"..i.."Text", "ARTWORK", "ChatFontNormal")
 			text:SetPoint ("LEFT", icon, "RIGHT", 10, 0)
 
-			
+
 			link:SetPoint ("TOPLEFT", 0, 0)
 			link:SetPoint ("BOTTOM", 0, 0)
 			link:SetScript ("OnLeave", function ()
@@ -292,7 +290,7 @@ end
 
 function PetMarket:HideUi ()
 	if PetMarketScan == nil then return end
-	
+
 	PetMarketScroll:Hide ()
 	PetMarketStatus:Hide ()
 	PetMarketScan:Hide ()
@@ -312,15 +310,15 @@ function PetMarket:ShowConfirmDialog (type)
 		PetMarketConfirm:SetSize (300, 200)
 		PetMarketConfirm:SetPoint ("CENTER", 0, 0)
 		local backdrop = {
-		  bgFile = "Interface\\CharacterFrame\\UI-Party-Background", 
-		  edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", 
-		  tile = true, 
-		  tileSize = 32, 
-		  edgeSize = 32, 
+		  bgFile = "Interface\\CharacterFrame\\UI-Party-Background",
+		  edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+		  tile = true,
+		  tileSize = 32,
+		  edgeSize = 32,
 		  insets = {
-			left = 11, 
-			right = 12, 
-			top = 12, 
+			left = 11,
+			right = 12,
+			top = 12,
 			bottom = 11
 		  }
 		}
@@ -338,7 +336,7 @@ function PetMarket:ShowConfirmDialog (type)
 		icon:SetPoint ("TOPLEFT", 0, 0)
 		icon:SetPoint ("BOTTOM", 0, 0)
 		icon:SetWidth (link:GetHeight ())
-		
+
 		local text = link:CreateFontString ("PetMarketConfirmLinkText", "ARTWORK", "ChatFontNormal")
 		text:SetPoint ("LEFT", icon, "RIGHT", 10, 0)
 
@@ -430,27 +428,27 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 
 		for i=1, cnt do
 			local itemLink = GetAuctionItemLink ("list", i)
-			local npcID = nil
+			local speciesID
 			local name, texture, _, _, _, _, _, minBid, _, buyoutPrice, _, _, _, _, _, _, itemId = GetAuctionItemInfo ("list", i)
-			if itemLink ~= nil and string.match (itemLink, "|Hbattlepet:") then
+			if itemLink and string.find (itemLink, "|Hbattlepet:") then
 				_, speciesID = strsplit (":", itemLink)
-				_, _, _, npcID = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
+				speciesID = tonumber (speciesID)
 			else
-				npcID = self.PetItems[itemId]
-				if npcID == nil then
+				speciesID = self.PetItems[itemID]
+				if not speciesID then
 					print ("PetMarket: Unknown pet item: "..itemId.." "..name)
 				end
 			end
-			if self.KnownPets[npcID] == nil then
+			if speciesID and not self.KnownPets[speciesID] then
 				v1 = buyoutPrice < 1 and minBid or buyoutPrice
 				v2 = pets[name] == nil and 0 or (pets[name]["buyout"] < 1 and pets[name]["bid"] or pets[name]["buyout"])
 				if pets[name] == nil or v1 < v2 then
 					pets[name] = {
-						name = name, 
-						texture = texture, 
-						buyout = buyoutPrice, 
-						bid = minBid, 
-						link = itemLink, 
+						name = name,
+						texture = texture,
+						buyout = buyoutPrice,
+						bid = minBid,
+						link = itemLink,
 						id = itemId
 					}
 				end
