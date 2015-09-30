@@ -15,5 +15,5 @@ Libs\AceTimer-3.0\AceTimer-3.0.lua
 Libs\LibPetJournal-2.0\LibPetJournal-2.0.lua
 #@end-no-lib-strip@
 
-Data.lua
+PetItemData.lua
 PetMarket.lua
