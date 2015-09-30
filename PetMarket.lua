@@ -198,7 +198,8 @@ end
 
 function PetMarket:ShowUi ()
 	for _, child in pairs ({AuctionFrame:GetChildren ()}) do
-		if child:GetName ():match ("AuctionFrameTab") == nil then
+		local name = child:GetName()
+		if not name or not name:find("AuctionFrameTab") then
 			child:Hide ()
 		end
 	end
