@@ -221,7 +221,8 @@ function PetMarket:ShowUI()
 	-- TODO: this is kind of an awkward way to hide stuff...
 	for i = 1, AuctionFrame:GetNumChildren() do
 		local child = select(i, AuctionFrame:GetChildren())
-		if not child:GetName():find("AuctionFrameTab") then
+		local name = child:GetName()
+		if not name or not name:find("AuctionFrameTab") then
 			child:Hide()
 		end
 	end
