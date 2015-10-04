@@ -49,7 +49,7 @@ end
 
 function PetMarket:UpdatePets ()
 	for _, petID in LibStub("LibPetJournal-2.0"):IteratePetIDs() do
-		PetMarket.KnownPets[(C_PetJournal.GetPetInfoByPetID(petID))] = name
+		table.insert(PetMarket.KnownPets, (C_PetJournal.GetPetInfoByPetID(petID)), true);
 	end
 end
 
