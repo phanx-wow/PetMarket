@@ -26,18 +26,15 @@
 
 PetMarket = LibStub("AceAddon-3.0"):NewAddon("PetMarket", "AceEvent-3.0", "AceTimer-3.0")
 local PetMarket = PetMarket
-
-PetMarket.DebugLog = {}
-local function tostringall(...)
-end
-local function debug(...)
-	tinsert(PetMarket.DebugLog, strjoin(" ", tostringall(...)))
-end
+local PET_MARKET, private = ...
 
 -- Pet lists
+PetMarket.PetItems = private.PetItemToSpecies
 PetMarket.KnownPets = {}
-PetMarket.PetItems = select(2, ...).PetItemToSpecies
 local pets = {}
+
+-- Constants
+local AH_ITEMS_PER_PAGE = 50
 
 -- State variables
 local tab_index
@@ -46,6 +43,38 @@ local active_button
 local lastPage = 0
 local battle = true
 local queryType = "NONE" -- NONE, SCAN, BID, BUYOUT
+
+-- Debugging utility
+PetMarket.DebugLog = {}
+local function debug(...)
+	tinsert(PetMarket.DebugLog, strjoin(" ", tostringall(...)))
+end
+
+-- Localization
+local L = setmetatable(private.L or {}, {
+	["PetMarket"] = PET_MARKET,
+	["Bid"] = BID,
+	["Buyout"] = BUYOUT,
+	["Cancel"] = CANCEL,
+	["Show"] = SHOW,
+	__index = function(t, k)
+		local v = tostring(k)
+		rawset(t, k, v)
+		return v
+	end
+})
+if GetLocale() == "deDE" then
+	L["%d pets found"] = "%d Kampfhaustiere gefunden"
+	L["Auction House is closed, can not scan."] = "Auktionshaus ist verschlossen, kann nicht scannen."
+	L["Bid the minimum of %s on this item?"] = "Biete auf Auktion für %s?"
+	L["Buy this item for %s?"] = "Auktionskauf für %s?"
+	L["Confirm"] = "Bestätigen"
+	L["Scan Action House"] = "Auktionshaus scannen"
+	L["Scanning battle pets page %d of %d..."] = "Kampfhaustiere-Seite %d von %d wird gescannt..."
+	L["Scanning items page %d of %d..."] = "Gegenstände-Seite %d von %d wird gescannt..."
+	L["Unable to find item."] = "Gegenstand nicht gefunden"
+	L["Unknown pet item: %d %s"] = "Unbekanntes Gegenstand: %d %s"
+end
 
 -- Initialization
 -------------------------------------------------------------------------------
@@ -56,12 +85,17 @@ end
 
 function PetMarket:UpdatePets()
 	for _, petID in LibStub("LibPetJournal-2.0"):IteratePetIDs() do
-		PetMarket.KnownPets[(C_PetJournal.GetPetInfoByPetID(petID))] = name
+		PetMarket.KnownPets[(C_PetJournal.GetPetInfoByPetID(petID))] = true
 	end
 end
 
 function PetMarket:AUCTION_HOUSE_HIDE()
-	for _, child in pairs({PetMarket.scrollChild:GetChildren()}) do child:Hide() end
+	-- TODO: can't we just hide the whole scrollFrame?
+	--       .... half our stuff isn't even parented to the scrollChild?
+	-- TODO: or just call :HideUI() ???
+	for _, child in pairs({ PetMarket.scrollChild:GetChildren() }) do
+		child:Hide()
+	end
 end
 
 -- Auction House tab
@@ -73,7 +107,7 @@ function PetMarket:AUCTION_HOUSE_SHOW()
 	tab_index = AuctionFrame.numTabs + 1
 	local tab = CreateFrame("Button", "AuctionFrameTab"..tab_index, AuctionFrame, "AuctionTabTemplate")
 	tab:SetID(tab_index)
-	tab:SetText("PetMarket")
+	tab:SetText(L["PetMarket"])
 	tab:SetPoint("LEFT", _G["AuctionFrameTab"..tab_index-1], "RIGHT", -8, 0)
 	PanelTemplates_SetNumTabs(AuctionFrame, tab_index)
 	PanelTemplates_EnableTab(AuctionFrame, tab_index)
@@ -157,19 +191,19 @@ do
 		row:SetScript("OnEnter", row_OnEnter)
 		row:SetScript("OnLeave", row_OnLeave)
 
-		local highlight = row:CreateTexture()
+		local highlight = row:CreateTexture(nil, "BACKGROUND")
 		highlight:SetTexture("Interface\\HelpFrame\\HelpFrameButton-Highlight")
 		highlight:SetTexCoord(0.035, 0.04, 0.2, 0.25)
 		highlight:SetAllPoints()
 		row:SetHighlightTexture(highlight)
 
-		local pushed = row:CreateTexture()
+		local pushed = row:CreateTexture(nil, "BACKGROUND")
 		pushed:SetTexture("Interface\\HelpFrame\\HelpFrameButton-Highlight")
 		pushed:SetTexCoord(0, 1, 0.0, 0.55)
 		pushed:SetAllPoints()
 		row:SetCheckedTexture(pushed)
 
-		local icon = row:CreateTexture()
+		local icon = row:CreateTexture(nil, "ARTWORK")
 		icon:SetPoint("TOPLEFT")
 		icon:SetPoint("BOTTOM")
 		icon:SetWidth(ROW_HEIGHT)
@@ -190,7 +224,7 @@ do
 		row.buyout = buyout
 
 		local label = buyout:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-		label:SetText("Buyout")
+		label:SetText(L["Buyout"])
 		label:SetPoint("BOTTOMRIGHT", buyout, "BOTTOMLEFT", -5, 0)
 		buyout.label = label
 		
@@ -214,7 +248,7 @@ function PetMarket:CreateEntries(pets)
 		row:Hide()
 	end
 	PetMarket.scrollChild:SetHeight(#pets * (ROW_HEIGHT + ROW_GAP))
-	PetMarket.statusText:SetText(#pets.." items found")
+	PetMarket.statusText:SetFormattedText(L["%d pets found"], #pets)
 end
 
 function PetMarket:ShowUI()
@@ -229,10 +263,10 @@ function PetMarket:ShowUI()
 	AuctionFrameCloseButton:Show()
 	AuctionFrameMoneyFrame:Show()
 
-	if not PetMarket.scanButton then
+	if not PetMarket.scanButton then -- TODO: can we parent everything to the scrollFrame?
 		local scanButton = CreateFrame("Button", "PetMarketScanButton", AuctionFrame, "UIPanelButtonTemplate")
 		scanButton:SetPoint("TOPLEFT", 100, -45)
-		scanButton:SetText("Scan Action House")
+		scanButton:SetText(L["Scan Action House"])
 		scanButton:SetWidth(max(150, scanButton:GetFontString():GetStringWidth() + 24))
 		scanButton:SetScript("OnClick", function()
 			self:RegisterEvent("AUCTION_ITEM_LIST_UPDATE")
@@ -258,7 +292,7 @@ function PetMarket:ShowUI()
 		local bidButton = CreateFrame("Button", "PetMarketBidButton", AuctionFrame, "UIPanelButtonTemplate")
 		bidButton:SetPoint("BOTTOMRIGHT", -168, 14)
 		bidButton:SetSize(80, 22)
-		bidButton:SetText("Bid")
+		bidButton:SetText(L["Bid"])
 		bidButton:SetScript("OnClick", function()
 			self:ShowConfirmDialog("BID")
 		end)
@@ -268,7 +302,7 @@ function PetMarket:ShowUI()
 		local buyoutButton = CreateFrame("Button", "PetMarketBuyoutButton", AuctionFrame, "UIPanelButtonTemplate")
 		buyoutButton:SetPoint("BOTTOMRIGHT", -88, 14)
 		buyoutButton:SetSize(80, 22)
-		buyoutButton:SetText("Buyout")
+		buyoutButton:SetText(L["Buyout"])
 		buyoutButton:SetScript("OnClick", function()
 			self:ShowConfirmDialog("BUYOUT")
 		end)
@@ -278,7 +312,7 @@ function PetMarket:ShowUI()
 		local showButton = CreateFrame("Button", "PetMarketShowButton", AuctionFrame, "UIPanelButtonTemplate")
 		showButton:SetPoint("BOTTOMRIGHT", -8, 14)
 		showButton:SetSize(80, 22)
-		showButton:SetText("Show")
+		showButton:SetText(L["Show"])
 		showButton:SetScript("OnClick", function()
 			SortAuctionClearSort("list")
 			SortAuctionSetSort("list", "buyout")
@@ -327,8 +361,9 @@ end
 function PetMarket:ShowConfirmDialog(type)
 	PetMarket.scrollFrame:Hide()
 
-	if not PetMarket.confirmDialog then
-		local dialog = CreateFrame("Frame", "PetMarketConfirmDialog", AuctionFrame)
+	local dialog = PetMarket.confirmDialog
+	if not dialog then
+		dialog = CreateFrame("Frame", "PetMarketConfirmDialog", AuctionFrame)
 		dialog:SetSize(300, 200)
 		dialog:SetPoint("CENTER")
 		dialog:SetBackdrop({
@@ -338,25 +373,26 @@ function PetMarket:ShowConfirmDialog(type)
 		})
 		PetMarket.confirmDialog = dialog
 
-		local err:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-		err:SetText("Unable to find item.") -- TODO: localize
+		local err = dialog:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+		err:SetText(L["Unable to find item."])
 		err:SetPoint("CENTER")
 		err:Hide()
-		PetMarket.confirmDialog.errorText = err
+		dialog.errorText = err
 
-		local link = CreateFrame("Frame", nil, confirmDialog)
+		local link = CreateFrame("Frame", nil, dialog)
+		link:SetPoint("TOPLEFT")
+		link:SetPoint("TOPRIGHT")
 		link:SetHeight(50)
-		PetMarket.confirmDialog.link = link
+		dialog.link = link
 
-		local icon = link:CreateTexture(nil)
-		icon:SetPoint("TOPLEFT")
-		icon:SetPoint("BOTTOM")
-		icon:SetWidth(link:GetHeight())
-		PetMarket.confirmDialog.linkIcon = icon
+		local icon = link:CreateTexture(nil, "ARTWORK")
+		icon:SetPoint("LEFT")
+		icon:SetSize(50, 50)
+		dialog.linkIcon = icon
 
 		local text = link:CreateFontString(nil, "ARTWORK", "ChatFontNormal")
 		text:SetPoint("LEFT", icon, "RIGHT", 10, 0)
-		PetMarket.confirmDialog.linkText = text
+		dialog.linkText = text
 
 		link:SetWidth(text:GetWidth() + icon:GetWidth())
 		link:SetPoint("TOP", 0, -25)
@@ -365,70 +401,44 @@ function PetMarket:ShowConfirmDialog(type)
 			BattlePetTooltip:Hide()
 		end)
 
-		local cancel = CreateFrame("Button", "PetMarketConfirmCancelButton", PetMarket.confirmDialog, "UIPanelButtonTemplate")
+		local cancel = CreateFrame("Button", "PetMarketConfirmCancelButton", dialog, "UIPanelButtonTemplate")
 		cancel:SetPoint("BOTTOM", 50, 30)
 		cancel:SetSize(80, 22)
-		cancel:SetText("Cancel")
+		cancel:SetText(L["Cancel"])
 		cancel:SetScript("OnClick", function()
-			PetMarket.confirmDialog:Hide()
+			dialog:Hide()
 			PetMarket.scrollFrame:Show()
 		end)
-		PetMarket.confirmDialog.cancelButton = cancel
+		dialog.cancelButton = cancel
 
-		local confirm = CreateFrame("Button", "PetMarketConfirmButton", PetMarket.confirmDialog, "UIPanelButtonTemplate")
+		local confirm = CreateFrame("Button", "PetMarketConfirmButton", dialog, "UIPanelButtonTemplate")
 		confirm:SetPoint("BOTTOM", -50, 30)
 		confirm:SetSize(80, 22)
-		confirm:SetText("Confirm")
+		confirm:SetText(L["Confirm"])
 		confirm:SetScript("OnClick", function()
-			PetMarket.confirmDialog:Hide()
+			dialog:Hide()
 			PetMarket.scrollFrame:Show()
 		end)
-		PetMarket.confirmDialog.confirmButton = confirm
+		dialog.confirmButton = confirm
 
-		local buyoutText = PetMarket.confirmDialog:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-		buyoutText:SetText("Buy this item for ")
-		PetMarket.confirmDialog.buyoutText = buyoutText
-		
-		local buyout = CreateFrame("Frame", "PetMarketConfirmBuyoutMoney", PetMarket.confirmDialog, "SmallMoneyFrameTemplate")
-		buyout:SetPoint("LEFT", buyoutText, "RIGHT")
-		MoneyFrame_SetType(buyout, "AUCTION")
-		PetMarket.confirmDialog.buyout = buyout
-		
-		local buyoutQ = buyout:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-		buyoutQ:SetPoint("LEFT", buyout, "RIGHT", -12, 0)
-		buyoutQ:SetText("?")
+		local buyoutText = dialog:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+		buyoutText.textPattern = L["Buy this item for %s?"]
+		dialog.buyoutText = buyoutText
 
-		local bidText = PetMarket.confirmDialog:CreateFontString("PetMarket.confirmDialog.bidText", "ARTWORK", "GameFontNormal")
-		bidText:SetText("Bid the minimum of")
-		PetMarket.confirmDialog.bidText = bidText
-		
-		local bid = CreateFrame("Frame", "PetMarketConfirmBidMoney", PetMarket.confirmDialog, "SmallMoneyFrameTemplate")
-		bid:SetPoint("LEFT", bidText, "RIGHT")
-		MoneyFrame_SetType(bid, "AUCTION")
-		PetMarket.confirmDialog.bid = bidT
-	
-		local bid2 = PetMarket.confirmDialog:CreateFontString("PetMarketConfirmBidText2", "ARTWORK", "GameFontNormal")
-		PetMarketConfirmBidText2:SetText("on this item?")
-		PetMarketConfirmBidText2:SetPoint("TOPLEFT", bidText, "BOTTOMLEFT", 0, 2)
+		local bidText = dialog:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+		bidText.textPattern = L["Bid the minimum of %s on this item?"]
+		dialog.bidText = bidText
 	end
 
 	SortAuctionClearSort("list")
 
 	if type == "BUYOUT" then
-		PetMarket.confirmDialog.bidText:Hide()
-		PetMarket.confirmDialog.bid:Hide()
-
-		PetMarket.confirmDialog.buyoutText:Show()
-		PetMarket.confirmDialog.buyout:Show()
-
+		dialog.bidText:Hide()
+		dialog.buyoutText:Show()
 		SortAuctionSetSort("list", "buyout")
 	elseif type == "BID" then
-		PetMarket.confirmDialog.buyoutText:Hide()
-		PetMarket.confirmDialog.buyout:Hide()
-
-		PetMarket.confirmDialog.bidText:Show()
-		PetMarket.confirmDialog.bid:Show()
-
+		dialog.buyoutText:Hide()
+		dialog.bidText:Show()
 		SortAuctionSetSort("list", "bid")
 	end
 
@@ -454,9 +464,16 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE()
 	if queryType == "SCAN" then
 		queryType = "NONE"
 
-		-- Much of the following code taken from MiniPetQ
 		local count, total = GetNumAuctionItems("list")
+		if lastPage > 0 then
+			if battle then
+				self.statusText:SetFormattedText(L["Scanning battle pets page %d of %d..."], lastPage, floor(total / AH_ITEMS_PER_PAGE + 0.5))
+			else
+				self.statusText:SetFormattedText(L["Scanning items page %d of %d..."], lastPage, floor(total / AH_ITEMS_PER_PAGE + 0.5))
+			end
+		end
 
+		-- Much of the following code taken from MiniPetQ
 		for i = 1, count do
 			local itemLink = GetAuctionItemLink("list", i)
 			local speciesID
@@ -467,7 +484,7 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE()
 			else
 				speciesID = self.PetItems[itemID]
 				if not speciesID then
-					print("PetMarket: Unknown pet item: "..itemID.." "..name)
+					print("|cffff8000PetMarket:|r", format(L["Unknown pet item: %d %s"], itemID, name))
 				end
 			end
 			if speciesID and not self.KnownPets[speciesID] then
@@ -485,7 +502,7 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE()
 				end
 			end
 		end
-		if 50 * lastPage > total then
+		if AH_ITEMS_PER_PAGE * lastPage > total then
 			lastPage = 0
 			if battle == true then
 				battle = false
@@ -501,7 +518,6 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE()
 			end
 		else
 			lastPage = lastPage + 1
-			PetMarket.statusText:SetText("Scanning "..(battle and "battle pets" or "items").." page "..lastPage.." of "..string.format("%.0f", total/50+1))
 			self:ScheduleTimer("AHQuery", .1)
 		end
 	else
@@ -509,21 +525,18 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE()
 		local link = GetAuctionItemLink("list", 1)
 		local name, texture, _, _, _, _, _, minBid, _, buyoutPrice, _, _, _, _, _, _, itemID = GetAuctionItemInfo("list", 1)
 		if name ~= active_auction["name"] or itemID ~= active_auction["id"] then
-			PetMarketConfirmBidText:Hide()
-			PetMarket.confirmDialog.bid:Hide()
-			PetMarket.confirmDialog.buyoutText:Hide()
-			PetMarket.confirmDialog.buyout:Hide()
 			PetMarket.confirmDialog.link:Hide()
+			PetMarket.confirmDialog.bidText:Hide()
+			PetMarket.confirmDialog.buyoutText:Hide()
 			PetMarket.confirmDialog.errorText:Show()
 			queryType = "NONE"
 			return
 		end
 		PetMarket.confirmDialog.linkIcon:SetTexture(texture)
 		PetMarket.confirmDialog.linkText:SetText(link)
-		PetMarket.confirmDialog.link:SetWidth(PetMarket.confirmDialog.linkText:GetWidth()+PetMarket.confirmDialog.linkIcon:GetWidth())
-		PetMarket.confirmDialog.link:SetScript("OnEnter", function()
-			GameTooltip:Show()
-			GameTooltip:SetOwner(PetMarket.confirmDialog.link)
+		PetMarket.confirmDialog.link:SetWidth(PetMarket.confirmDialog.linkText:GetWidth() + PetMarket.confirmDialog.linkIcon:GetWidth())
+		PetMarket.confirmDialog.link:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self)
 			if string.match(link, "|Hbattlepet:") then
 				local _, speciesID, level, breedQuality, maxHealth, power, speed, battlePetID = strsplit(":", link)
 				BattlePetToolTip_Show(tonumber(speciesID), tonumber(level), tonumber(breedQuality), tonumber(maxHealth), tonumber(power), tonumber(speed), nil)
@@ -533,9 +546,9 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE()
 		end)
 
 		if queryType == "BUYOUT" then
-			MoneyFrame_Update(PetMarket.confirmDialog.buyout, buyoutPrice)
-			PetMarket.confirmDialog.buyoutText:SetPoint("TOP", PetMarket.confirmDialog.link, "BOTTOM", -PetMarket.confirmDialog.buyout:GetWidth()/2, -20)
-			PetMarket.confirmDialog.confirmButton:SetScript("OnClick", function()
+			PetMarket.confirmDialog.buyoutText:SetFormattedText(PetMarket.confirmDialog.buyoutText.textPattern, GetCoinTextureString(buyoutPrice))
+			PetMarket.confirmDialog.buyoutText:SetPoint("TOP", PetMarket.confirmDialog.link, "BOTTOM", 0, -20)
+			PetMarket.confirmDialog.confirmButton:SetScript("OnClick", function() -- TODO: factor out
 				local name, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, itemID = GetAuctionItemInfo("list", 1)
 				if name == active_auction["name"] and itemID == active_auction["id"] then
 					PlaceAuctionBid("list", 1, buyoutPrice)
@@ -544,9 +557,9 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE()
 				PetMarket.scrollFrame:Show()
 			end)
 		elseif queryType == "BID" then
-			MoneyFrame_Update(PetMarket.confirmDialog.bid, minBid)
-			PetMarket.confirmDialog.bidText:SetPoint("TOP", PetMarket.confirmDialog.link, "BOTTOM", -PetMarket.confirmDialog.bid:GetWidth()/2, -20)
-			PetMarket.confirmDialog.confirmButton:SetScript("OnClick", function()
+			PetMarket.confirmDialog.bidText:SetFormattedText(PetMarket.confirmDialog.bidText.textPattern, GetCoinTextureString(minBid))
+			PetMarket.confirmDialog.bidText:SetPoint("TOP", PetMarket.confirmDialog.link, "BOTTOM", 0, -20)
+			PetMarket.confirmDialog.confirmButton:SetScript("OnClick", function() -- TODO: factor out
 				local name, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, itemID = GetAuctionItemInfo("list", 1)
 				if name == active_auction["name"] and itemID == active_auction["id"] then
 					PlaceAuctionBid("list", 1, minBid)
@@ -555,16 +568,13 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE()
 				PetMarket.scrollFrame:Show()
 			end)
 		end
-
 		queryType = "NONE"
-
-		return
 	end
 end
 
 function PetMarket:AHQuery()
 	if AuctionFrame:IsVisible() ~= true then
-		print("PetMarket: Auction House is closed, can not scan.")
+		print("|cffff8000PetMarket:|r", L["Auction House is closed, can not scan."])
 		self:UnregisterEvent("AUCTION_ITEM_LIST_UPDATE")
 		queryType = "NONE"
 		return
