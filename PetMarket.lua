@@ -37,7 +37,7 @@ local pets = {}
 local AH_ITEMS_PER_PAGE = 50
 
 -- State variables
-local tab_index
+local PETMARKET_TAB
 local active_auction
 local active_button
 local lastPage = 0
@@ -65,8 +65,8 @@ local L = setmetatable(private.L or {}, {
 })
 if GetLocale() == "deDE" then
 	L["%d pets found"] = "%d Kampfhaustiere gefunden"
-	L["Auction House is closed, can not scan."] = "Auktionshaus ist verschlossen, kann nicht scannen."
-	L["Bid the minimum of %s on this item?"] = "Biete auf Auktion für %s?"
+	L["Scan failed: Auction House is closed."] = "Scann ist fehlgeschlagen: Auktionshaus ist verschlossen."
+	L["Bid on this item for %s?"] = "Biete auf Auktion für %s?"
 	L["Buy this item for %s?"] = "Auktionskauf für %s?"
 	L["Confirm"] = "Bestätigen"
 	L["Scan Action House"] = "Auktionshaus scannen"
@@ -74,6 +74,9 @@ if GetLocale() == "deDE" then
 	L["Scanning items page %d of %d..."] = "Gegenstände-Seite %d von %d wird gescannt..."
 	L["Unable to find item."] = "Gegenstand nicht gefunden"
 	L["Unknown pet item: %d %s"] = "Unbekanntes Gegenstand: %d %s"
+elseif GetLocale():find("^es") then
+	L["%d pets found"] = "%d mascotas encontradas"
+	L["Scan failed: Auction House is closed."] = "Scan falló: Casa de Subastas está cerrado."
 end
 
 -- Initialization
@@ -104,13 +107,13 @@ function PetMarket:AUCTION_HOUSE_SHOW()
 	self:UpdatePets()
 	LibStub("LibPetJournal-2.0").RegisterCallback(self, "PetListUpdated", "UpdatePets")
 
-	tab_index = AuctionFrame.numTabs + 1
-	local tab = CreateFrame("Button", "AuctionFrameTab"..tab_index, AuctionFrame, "AuctionTabTemplate")
-	tab:SetID(tab_index)
+	PETMARKET_TAB = AuctionFrame.numTabs + 1
+	local tab = CreateFrame("Button", "AuctionFrameTab"..PETMARKET_TAB, AuctionFrame, "AuctionTabTemplate")
+	tab:SetID(PETMARKET_TAB)
 	tab:SetText(L["PetMarket"])
-	tab:SetPoint("LEFT", _G["AuctionFrameTab"..tab_index-1], "RIGHT", -8, 0)
-	PanelTemplates_SetNumTabs(AuctionFrame, tab_index)
-	PanelTemplates_EnableTab(AuctionFrame, tab_index)
+	tab:SetPoint("LEFT", _G["AuctionFrameTab"..PETMARKET_TAB-1], "RIGHT", -8, 0)
+	PanelTemplates_SetNumTabs(AuctionFrame, PETMARKET_TAB)
+	PanelTemplates_EnableTab(AuctionFrame, PETMARKET_TAB)
 	tab:GetScript("OnShow")(tab) -- force tab to resize to fit its text
 
 	self.orig_AuctionFrameTab_OnClick = AuctionFrameTab_OnClick
@@ -120,13 +123,13 @@ function PetMarket:AUCTION_HOUSE_SHOW()
 end
 
 function PetMarket.AuctionFrameTab_OnClick(self, button, down, index)
-	if self:GetID() == tab_index then
+	if self:GetID() == PETMARKET_TAB then
 		AuctionFrameAuctions:Hide()
 		AuctionFrameBrowse:Hide()
 		AuctionFrameBid:Hide()
 		PlaySound("igCharacterInfoTab")
 
-		PanelTemplates_SetTab(AuctionFrame, tab_index)
+		PanelTemplates_SetTab(AuctionFrame, PETMARKET_TAB)
 
 		AuctionFrameTopLeft:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Bid-TopLeft")
 		AuctionFrameTop:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Auction-Top")
@@ -201,6 +204,8 @@ do
 		pushed:SetTexture("Interface\\HelpFrame\\HelpFrameButton-Highlight")
 		pushed:SetTexCoord(0, 1, 0.0, 0.55)
 		pushed:SetAllPoints()
+		pushed:SetBlendMode("ADD")
+		pushed:SetAlpha(0.8)
 		row:SetCheckedTexture(pushed)
 
 		local icon = row:CreateTexture(nil, "ARTWORK")
@@ -426,7 +431,7 @@ function PetMarket:ShowConfirmDialog(type)
 		dialog.buyoutText = buyoutText
 
 		local bidText = dialog:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-		bidText.textPattern = L["Bid the minimum of %s on this item?"]
+		bidText.textPattern = L["Bid on this item for %s?"]
 		dialog.bidText = bidText
 	end
 
@@ -574,7 +579,7 @@ end
 
 function PetMarket:AHQuery()
 	if AuctionFrame:IsVisible() ~= true then
-		print("|cffff8000PetMarket:|r", L["Auction House is closed, can not scan."])
+		print("|cffff8000PetMarket:|r", L["Scan failed: Auction House is closed."])
 		self:UnregisterEvent("AUCTION_ITEM_LIST_UPDATE")
 		queryType = "NONE"
 		return
