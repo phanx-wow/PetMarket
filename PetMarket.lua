@@ -1,8 +1,8 @@
 --[[--------------------------------------------------------------------
 	PetMarket
 	Scans auction house for unowned pets.
-	http://www.curse.com/addons/wow/petmarket
-	http://wow.curseforge.com/addons/petmarket/
+	https://mods.curse.com/addons/wow/petmarket
+	https://wow.curseforge.com/addons/petmarket/
 
 	Copyright (C) 2014 Timothy Johnson (RedHatter21)
 
@@ -37,7 +37,6 @@ local tab_index
 local active_auction
 local active_button
 local lastPage = 0
-local battle = true
 local queryType = "NONE" -- NONE, SCAN, BID, BUYOUT
 
 -- Initialization
@@ -84,7 +83,7 @@ function PetMarket.AuctionFrameTab_OnClick (self, button, down, index)
 		AuctionFrameAuctions:Hide ()
 		AuctionFrameBrowse:Hide ()
 		AuctionFrameBid:Hide ()
-		PlaySound ("igCharacterInfoTab")
+		PlaySound (SOUNDKIT.IG_CHARACTER_INFO_TAB)
 
 		PanelTemplates_SetTab (AuctionFrame, tab_index)
 
@@ -213,9 +212,8 @@ function PetMarket:ShowUi ()
 		PetMarketScan:SetText ("Scan Action House")
 		PetMarketScan:SetScript ("OnClick", function ()
 			self:RegisterEvent ("AUCTION_ITEM_LIST_UPDATE")
-			queryType = "SCAN"
-			battle = true
-			QueryAuctionItems ("", 0, 0, 0, 11, 0, 0, 0, 0, 0)
+			lastPage = 0
+			self:AHQuery ()
 		end)
 	end
 
@@ -268,7 +266,7 @@ function PetMarket:ShowUi ()
 			QueryAuctionItems (active_auction["name"])
 
 			self:HideUi ()
-			PlaySound ("igCharacterInfoTab")
+			PlaySound (SOUNDKIT.IG_CHARACTER_INFO_TAB)
 			PanelTemplates_SetTab (AuctionFrame, 1)
 			AuctionFrameTopLeft:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-TopLeft");
 			AuctionFrameTop:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-Top");
@@ -463,23 +461,18 @@ function PetMarket:AUCTION_ITEM_LIST_UPDATE ()
 				end
 			end
 		end
+		PetMarketStatus:SetText (string.format("Scanning battle pets, page %d of %d", lastPage, math.ceil(total/50)))
 		if 50 * lastPage > total then
 			lastPage = 0
-			if battle == true then
-				battle = false
-				PetMarket:ScheduleTimer ("AHQuery", .1)
-			else
-				local strings = {}
-				for key, value in pairs (pets) do
-					table.insert (strings, value)
-				end
-				table.sort (strings, sortEntryStrings)
-				self:CreateEntries (strings)
-				self:UnregisterEvent ("AUCTION_ITEM_LIST_UPDATE")
+			local strings = {}
+			for key, value in pairs (pets) do
+				table.insert (strings, value)
 			end
+			table.sort (strings, sortEntryStrings)
+			self:CreateEntries (strings)
+			self:UnregisterEvent ("AUCTION_ITEM_LIST_UPDATE")
 		else
 			lastPage = lastPage + 1
-			PetMarketStatus:SetText ("Scanning "..(battle and "battle pets" or "items").." page "..lastPage.." of "..string.format ("%.0f", total/50+1))
 			self:ScheduleTimer ("AHQuery", .1)
 		end
 	else
@@ -555,9 +548,6 @@ function PetMarket:AHQuery ()
 	end
 
 	queryType = "SCAN"
-	if battle then
-		QueryAuctionItems ("", 0, 0, 0, 11, 0, lastPage, 0, 0, 0)
-	else
-		QueryAuctionItems ("", 0, 0, 0, 9, 3, lastPage, true, 0, 0)
-	end
+	local filterData = AuctionCategories[10].filters
+	QueryAuctionItems ("", 0, 0, lastPage, false, -1, false, false, filterData)
 end
