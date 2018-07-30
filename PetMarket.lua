@@ -43,7 +43,7 @@ local queryType = "NONE" -- NONE, SCAN, BID, BUYOUT
 -------------------------------------------------------------------------------
 function PetMarket:OnInitialize ()
 	self:RegisterEvent ("AUCTION_HOUSE_SHOW")
-	self:RegisterEvent ("AUCTION_HOUSE_HIDE")
+	self:RegisterEvent ("AUCTION_HOUSE_CLOSED")
 end
 
 function PetMarket:UpdatePets ()
@@ -52,7 +52,7 @@ function PetMarket:UpdatePets ()
 	end
 end
 
-function PetMarket:AUCTION_HOUSE_HIDE ()
+function PetMarket:AUCTION_HOUSE_CLOSED ()
 	for _, child in pairs ({PetMarketScrollChild:GetChildren ()}) do child:Hide () end
 end
 
