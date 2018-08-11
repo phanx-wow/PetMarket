@@ -53,7 +53,7 @@ function PetMarket:UpdatePets()
 end
 
 function PetMarket:AUCTION_HOUSE_CLOSED()
-	for _, child in pairs({PetMarketScrollChild:GetChildren()}) do child:Hide() end
+	PetMarket:HideUi()
 end
 
 -- Auction House tab
